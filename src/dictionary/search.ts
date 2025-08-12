@@ -101,12 +101,39 @@ export const loadWordDict = async (): Promise<{
   wordDict: string;
   wordDictIndex: string;
 }> => {
+  const base = import.meta.env.BASE_URL || "";
+  type ElectronAPI = { readTextAsset: (p: string) => Promise<string> };
+  const electronAPI: ElectronAPI | undefined =
+    (globalThis as unknown as { electronAPI?: ElectronAPI }).electronAPI;
   const [wordDict, wordDictIndex] = await Promise.all([
-    fetch("/dictionaries/word-dict.txt")
-      .then((res) => res.text())
-      // Normalize to LF so offsets in the index match
-      .then((t) => t.replace(/\r/g, "")),
-    fetch("/dictionaries/word-dict-index.txt").then((res) => res.text()),
+    (async () => {
+      try {
+        const t = await fetch(`${base}dictionaries/word-dict.txt`).then((r) =>
+          r.text()
+        );
+        return t.replace(/\r/g, "");
+      } catch (e) {
+        if (electronAPI) {
+          const t = await electronAPI.readTextAsset("dictionaries/word-dict.txt");
+          return t.replace(/\r/g, "");
+        }
+        throw e;
+      }
+    })(),
+    (async () => {
+      try {
+        return await fetch(`${base}dictionaries/word-dict-index.txt`).then(
+          (r) => r.text()
+        );
+      } catch (e) {
+        if (electronAPI) {
+          return await electronAPI.readTextAsset(
+            "dictionaries/word-dict-index.txt"
+          );
+        }
+        throw e;
+      }
+    })(),
   ]);
   return { wordDict, wordDictIndex };
 };

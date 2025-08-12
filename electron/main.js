@@ -15,6 +15,7 @@ function createWindow() {
       contextIsolation: true,
       enableRemoteModule: false,
       webSecurity: true,
+      preload: path.join(__dirname, "preload.cjs"),
     },
     icon: path.join(__dirname, "../public/icon.png"),
     autoHideMenuBar: true,

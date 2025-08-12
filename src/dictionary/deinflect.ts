@@ -102,8 +102,24 @@ export const parseDeinflectionData = (buffer: string[]): DeinflectionData => {
 };
 
 export const loadDeinflectionData = async (): Promise<DeinflectionData> => {
+  const base = import.meta.env.BASE_URL || "";
+  type ElectronAPI = { readTextAsset: (p: string) => Promise<string> };
+  const electronAPI: ElectronAPI | undefined = (
+    globalThis as unknown as { electronAPI?: ElectronAPI }
+  ).electronAPI;
   const buffer = (
-    await fetch("/dictionaries/deinflect.txt").then((res) => res.text())
+    await (async () => {
+      try {
+        return await fetch(`${base}dictionaries/deinflect.txt`).then((res) =>
+          res.text()
+        );
+      } catch (e) {
+        if (electronAPI) {
+          return await electronAPI.readTextAsset("dictionaries/deinflect.txt");
+        }
+        throw e;
+      }
+    })()
   )
     .replace(/\r/g, "")
     .split("\n");
