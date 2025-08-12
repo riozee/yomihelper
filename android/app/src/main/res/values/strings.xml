@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">YomiHelper</string>
+    <string name="title_activity_main">YomiHelper</string>
+    <string name="package_name">com.riozee.yomihelper</string>
+    <string name="custom_url_scheme">com.riozee.yomihelper</string>
+</resources>

@@ -1,0 +1,118 @@
+.dictResults {
+  position: fixed;
+  top: 96px; /* sit below KeyboardInput (approx. 20px margin + 50px input + space) */
+  left: 0;
+  bottom: 0;
+  width: 50vw; /* keep it at the half left of the screen */
+  padding: 0 16px 24px 20px; /* align with input at left:20px */
+  background-color: transparent; /* blend with page */
+  border: none; /* remove border */
+  border-radius: 0;
+  color: #e6e6e6;
+  overflow: auto; /* scrollable internally */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+
+/* Hide scrollbar (WebKit) */
+.dictResults::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.dictResults__item {
+  list-style: none;
+  padding: 10px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dictResults__item:last-child {
+  border-bottom: none;
+}
+
+.dictResults__item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+/* removed active highlight */
+
+.dictResults__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.dictResults__word {
+  font-weight: 700;
+  font-size: 18px;
+  color: #ff79c6; /* matches input accent */
+}
+
+.dictResults__pron {
+  color: #b4b4b4;
+}
+
+.dictResults__pitch {
+  color: #8be9fd;
+  font-size: 12px;
+}
+
+.dictResults__defs {
+  margin-top: 4px;
+  color: #f8f8f2;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+.dictResults__senseList {
+  margin: 4px 0 0 18px;
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.dictResults__senseList li {
+  margin: 4px 0;
+}
+
+.dictResults__hl {
+  background: rgba(255, 121, 198, 0.25);
+  color: #fff;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+.dictResults__pos {
+  margin-right: 6px;
+}
+
+.dictResults__posTag {
+  color: #bd93f9;
+  margin-right: 4px;
+}
+
+.dictResults__pitchViz {
+  margin-left: 8px;
+  color: #8be9fd;
+}
+
+.dictResults__pitchChips {
+  margin-left: 6px;
+}
+
+.dictResults__chip {
+  display: inline-block;
+  font-size: 11px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(139, 233, 253, 0.15);
+  color: #8be9fd;
+  margin-left: 4px;
+  line-height: 1.6;
+}
+
+.dictResults__pitchViz .downstep::before {
+  content: "▾";
+  display: inline-block;
+  margin-right: 2px;
+}

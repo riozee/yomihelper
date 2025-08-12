@@ -1,0 +1,84 @@
+{
+  "name": "yomihelper",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Cross-platform app template using Capacitor + Vite + Electron",
+  "author": "riozee",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:all": "npm run build && npm run sync && npm run build:android && npm run build:desktop",
+    "build:android": "powershell -ExecutionPolicy Bypass -File scripts/build-android.ps1",
+    "build:desktop": "powershell -ExecutionPolicy Bypass -File scripts/build-desktop.ps1",
+    "build:clean": "npm run clean && npm run build:all",
+    "sync": "npx cap sync",
+    "clean": "rimraf dist android/app/build output && powershell -Command \"Remove-Item -Path '*.apk', '*.exe', '*.AppImage', '*.dmg' -Force -ErrorAction SilentlyContinue\"",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "open:android": "npx cap open android",
+    "serve:desktop": "electron .",
+    "start:android": "npx cap run android",
+    "postinstall": "node scripts/setup.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.2",
+    "@capacitor/cli": "^7.4.2",
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/electron": "^2.5.0",
+    "@capacitor/status-bar": "^7.0.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.32.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.39.0",
+    "vite": "^7.1.0"
+  },
+  "main": "electron/main.js",
+  "build": {
+    "appId": "com.riozee.yomihelper",
+    "productName": "YomiHelper",
+    "directories": {
+      "output": "output"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.js"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "forceCodeSigning": false,
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    }
+  }
+}
