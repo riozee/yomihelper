@@ -35,7 +35,11 @@
   cursor: pointer;
 }
 
-/* removed active highlight */
+/* Active (keyboard-highlighted) item */
+.dictResults__item--active {
+  background-color: rgba(139, 233, 253, 0.12);
+  outline: 1px solid rgba(139, 233, 253, 0.35);
+}
 
 .dictResults__row {
   display: flex;

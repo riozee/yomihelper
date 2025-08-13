@@ -61,8 +61,6 @@ const KeyboardInput: React.FC<KeyboardInputProps> = ({
     fontFamily: '"Fira Code", "Consolas", "Monaco", "Courier New", monospace',
   };
 
-  const clear = () => updateText("");
-
   return (
     <div
       className={className}
@@ -88,24 +86,6 @@ const KeyboardInput: React.FC<KeyboardInputProps> = ({
         }
         aria-label="Keyboard input"
       />
-      <button
-        type="button"
-        onClick={clear}
-        title="Clear"
-        aria-label="Clear input"
-        style={{
-          height: 32,
-          minWidth: 64,
-          padding: "0 10px",
-          borderRadius: 6,
-          border: "1px solid #4e4893",
-          background: "#2a2652",
-          color: "#ff79c6",
-          cursor: "pointer",
-        }}
-      >
-        Clear
-      </button>
     </div>
   );
 };

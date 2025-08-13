@@ -1,27 +1,31 @@
 # YomiHelper (読みヘルパ)
 
-![Screenshot 1](./public/screenshots/screenshot1.png)
-
-![Screenshot 2](./public/screenshots/screenshot2.png)
-
-Touch-friendly Japanese dictionary lookup with handwriting recognition and a floating T9 kana keyboard. Built once, shipped to Web, Android (Capacitor), and Desktop (Electron).
-
-## Motivation
-
 When reading Japanese (novels, newspapers, blogs), constantly switching to a separate dictionary kills flow. YomiHelper aims to keep you in the zone by making lookups smooth and efficient with minimal context switching.
+
+![Screenshot 1](./public/screenshots/ss1.png)
+
+![Screenshot 2](./public/screenshots/ss2.png)
+
+![Screenshot 3](./public/screenshots/ss3.png)
+
+YomiHelper is a touch-friendly Japanese dictionary lookup with full-screen handwriting and a Floating Tools panel (T9 keyboard, navigation, Pomodoro). Built once, shipped to Web, Android (Capacitor), and Desktop (Electron).
 
 ## Features
 
-- Kanji handwriting recognition on the right pane using kanjicanvas (stroke-based matching).
+- Full-screen kanji handwriting canvas using kanjicanvas; draw anywhere and see candidate kanji in the Floating Tools panel.
 - Fast, accurate dictionary lookup with deinflection and pitch accents, powered by japanese-dictionary.
-- Floating T9 keyboard for kana input (optimized for touch); supports dakuten/handakuten toggles and backspace.
-- Type directly with Romaji or your IME; results update as you type.
+- Floating Tools panel: draggable, dockable (press the "-" button to dock/undock), and hosts all utilities including the T9 keyboard.
+- T9 keyboard for kana input (optimized for touch); supports dakuten/handakuten toggles and backspace.
+- Pomodoro timer built into the Floating Tools panel.
+- Navigation arrows to move through search results; also supports keyboard Up/Down.
 - Cross‑platform by design: Vite web app, Capacitor Android, Electron desktop.
 
 ## How to use
 
-- Draw kanji on the right canvas. Top-right chip list shows candidates; tap to insert into the search field.
-- Use the floating T9 keyboard to enter hiragana quickly on touch devices. Long-press/tap the dakuten/handakuten buttons to modify the last kana.
+- Draw anywhere on the screen. Candidate chips appear inside the Floating Tools panel; tap to insert into the search field.
+- Open the T9 keyboard in Floating Tools to enter hiragana quickly on touch devices. Long-press/tap the dakuten/handakuten buttons to modify the last kana.
+- Drag the Floating Tools panel to reposition it. Press the "-" button to dock/undock it.
+- Use the navigation arrows in Floating Tools or your keyboard Up/Down keys to step through search results.
 - Prefer typing? Use Romaji (auto-converted to kana) or your OS IME. Results appear on the left as you type.
 - The app loads dictionary data on startup; a “Loading dictionary…” notice disappears when ready.
 
@@ -94,7 +98,7 @@ npm run lint
 ## Project structure (high level)
 
 - `src/` – React app (components, dictionary logic, kanji canvas wrapper)
-  - `components/` – `KanjiRecognizer.tsx`, `T9Keyboard.tsx`, input and results UI
+  - `components/` – `FloatingTools.tsx` (dockable panel hosting T9 keyboard, candidate chips, navigation arrows, Pomodoro timer), `KanjiRecognizer.tsx`, `T9Keyboard.tsx`, input and results UI
   - `dictionary/` – deinflection, romaji/kana conversion, search and pitch accent logic
   - `kanjicanvas/` – bundled `kanji-canvas.js` + reference patterns
 - `public/dictionaries/` – dictionary payloads loaded at runtime
@@ -107,6 +111,7 @@ npm run lint
 - Vite config outputs to `dist/` and serves assets from `./` so Android/Electron can load local files.
 - Capacitor config uses `appId: com.riozee.yomihelper` and `appName: YomiHelper`.
 - Electron packaging is configured via `electron-builder`’s `build` section in `package.json`.
+- UI: the handwriting canvas occupies the full viewport; all tools live in a floating, draggable, dockable panel.
 - Dictionary files are fetched from `/dictionaries/*.txt` at runtime. The search pipeline converts Romaji → Hiragana, normalizes Katakana, deinflects, and binary-searches an index file to resolve entries and pitch accents.
 
 ## Troubleshooting
@@ -116,6 +121,10 @@ npm run lint
   - Install Temurin JDK 17+ if missing (https://adoptium.net/), then re-run `npm run build:android`.
 - Android SDK issues: open the project with `npm run open:android` and let Android Studio install any missing components.
 - Dictionary never loads in the browser: ensure the `public/dictionaries/` files exist and are served (they are included in this repo).
+
+## Known issues
+
+- Navigation arrows in Floating Tools cannot currently be clicked with a mouse; use touch or keyboard Up/Down as a workaround.
 
 ## Name
 

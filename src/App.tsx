@@ -2,7 +2,9 @@ import "./App.css";
 import KeyboardInput from "./components/KeyboardInput";
 import { useEffect, useRef, useState } from "react";
 import DictionaryResults from "./components/DictionaryResults";
-import KanjiRecognizer from "./components/KanjiRecognizer";
+import KanjiRecognizer, {
+  KanjiRecognizerHandle,
+} from "./components/KanjiRecognizer";
 import {
   loadWordDict,
   searchWord,
@@ -11,7 +13,7 @@ import {
 } from "./dictionary/search";
 import { loadDeinflectionData } from "./dictionary/deinflect";
 import { loadPitchData } from "./dictionary/getPitchAccents";
-import T9Keyboard from "./components/T9Keyboard";
+import FloatingTools from "./components/FloatingTools";
 
 function App() {
   // Centralized text state - kept at top level to be shared across multiple components
@@ -20,6 +22,150 @@ function App() {
   const [entries, setEntries] = useState<WordEntry[]>([]);
   const [dictionaries, setDictionaries] = useState<Dictionaries | null>(null);
   const debounceTimer = useRef<number | null>(null);
+  const drawingActiveRef = useRef(false);
+  const [overlayActive, setOverlayActive] = useState(false); // overlay visibility
+  const [toolsDimmed, setToolsDimmed] = useState(false); // tools dim-state during active stroke
+  const [recogCandidates, setRecogCandidates] = useState<string[]>([]);
+  const recognizerRef = useRef<KanjiRecognizerHandle | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
+  const [highlightedResult, setHighlightedResult] = useState<{
+    word: string;
+    meaning: string;
+  } | null>(null);
+
+  // Global pointer handlers to trigger full-screen drawing overlay
+  useEffect(() => {
+    const isInFloatingTools = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Node)) return false;
+      const el = target as Element;
+      return !!el.closest?.("#floating-tools");
+    };
+    const isInOverlayUI = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Node)) return false;
+      const el = target as Element;
+      return !!el.closest?.("#kanji-overlay-ui");
+    };
+
+    const shouldStartFromEvent = (e: PointerEvent): boolean => {
+      // Ignore secondary buttons
+      if (e.pointerType === "mouse" && e.button !== 0) return false;
+      // Only start if pointer is not on FloatingTools or overlay UI (buttons)
+      if (isInFloatingTools(e.target)) return false;
+      if (isInOverlayUI(e.target)) return false;
+      // If overlay is inactive, its container has pointerEvents none; still allow starting anywhere else
+      return true;
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (drawingActiveRef.current) return;
+      if (!shouldStartFromEvent(e)) return;
+      // Show overlay when starting the first stroke
+      setOverlayActive(true);
+      drawingActiveRef.current = true;
+      setToolsDimmed(true);
+      activePointerIdRef.current = e.pointerId;
+      recognizerRef.current?.forwardPointer("down", e.clientX, e.clientY);
+      // Prevent scrolling/selection during draw
+      e.preventDefault();
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!drawingActiveRef.current) return;
+      if (
+        activePointerIdRef.current !== null &&
+        e.pointerId !== activePointerIdRef.current
+      )
+        return;
+      recognizerRef.current?.forwardPointer("move", e.clientX, e.clientY);
+      e.preventDefault();
+    };
+
+    const finishStroke = (e: PointerEvent) => {
+      if (!drawingActiveRef.current) return;
+      if (
+        activePointerIdRef.current !== null &&
+        e.pointerId !== activePointerIdRef.current
+      )
+        return;
+      recognizerRef.current?.forwardPointer("up", e.clientX, e.clientY);
+      drawingActiveRef.current = false;
+      setOverlayActive(false);
+      setToolsDimmed(false);
+      activePointerIdRef.current = null;
+      e.preventDefault();
+    };
+
+    window.addEventListener("pointerdown", onPointerDown, {
+      capture: true,
+      passive: false,
+    });
+    window.addEventListener("pointermove", onPointerMove, {
+      capture: true,
+      passive: false,
+    });
+    window.addEventListener("pointerup", finishStroke, {
+      capture: true,
+      passive: false,
+    });
+    window.addEventListener("pointercancel", finishStroke, {
+      capture: true,
+      passive: false,
+    });
+
+    // Edge/Chromium sometimes needs explicit touch prevention to stop page drag/scroll
+    const stopTouch = (e: TouchEvent) => {
+      if (drawingActiveRef.current) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("touchstart", stopTouch, {
+      capture: true,
+      passive: false,
+    });
+    window.addEventListener("touchmove", stopTouch, {
+      capture: true,
+      passive: false,
+    });
+
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("pointermove", onPointerMove, true);
+      window.removeEventListener("pointerup", finishStroke, true);
+      window.removeEventListener("pointercancel", finishStroke, true);
+      window.removeEventListener("touchstart", stopTouch, true);
+      window.removeEventListener("touchmove", stopTouch, true);
+    };
+  }, []);
+
+  // Global ArrowUp/ArrowDown -> navigate DictionaryResults
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      if (!entries.length) return;
+      // Prevent browser focus navigation and caret movement
+      e.preventDefault();
+      e.stopPropagation();
+      // Best effort to stop other handlers; optional in some browsers
+      const ke: unknown = e;
+      if (
+        ke &&
+        typeof ke === "object" &&
+        "stopImmediatePropagation" in ke &&
+        typeof (ke as { stopImmediatePropagation?: () => void })
+          .stopImmediatePropagation === "function"
+      ) {
+        (
+          ke as { stopImmediatePropagation: () => void }
+        ).stopImmediatePropagation();
+      }
+      const ev = new CustomEvent("yomi:navigateResults", {
+        detail: { direction: e.key === "ArrowUp" ? -1 : 1 },
+      });
+      window.dispatchEvent(ev);
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [entries.length]);
 
   const handleTextChange = (text: string) => {
     console.log("Current text:", text);
@@ -67,30 +213,50 @@ function App() {
   return (
     <div
       className="app"
-      style={{ display: "flex", width: "100%", height: "100vh" }}
+      style={{ width: "100%", height: "100vh" }}
+      data-highlight-word={highlightedResult?.word ?? ""}
+      data-highlight-meaning={highlightedResult?.meaning ?? ""}
     >
-      {/* Left side: controls and dictionary results */}
-      <div style={{ flex: 1, minWidth: 0, padding: 20, position: "relative" }}>
-        <div style={{ position: "absolute", top: 20, left: 20, right: 20 }}>
-          <KeyboardInput value={inputValue} onTextChange={handleTextChange} />
-          {!dictionaries ? (
-            <div style={{ color: "#b4b4b4", marginTop: 8 }}>
-              Loading dictionary…
-            </div>
-          ) : null}
-          <DictionaryResults entries={entries} matchText={inputValue.trim()} />
-        </div>
-      </div>
-      {/* Right side: full-height kanji canvas */}
-      <div style={{ flex: 1, minWidth: 0, borderLeft: "1px solid #2b2850" }}>
-        <KanjiRecognizer
-          onSelectKanji={(ch) => setInputValue((prev) => prev + ch)}
+      {/* Main content: keyboard input and dictionary results */}
+      <div style={{ padding: 20 }}>
+        <KeyboardInput value={inputValue} onTextChange={handleTextChange} />
+        {!dictionaries ? (
+          <div style={{ color: "#b4b4b4", marginTop: 8 }}>
+            Loading dictionary…
+          </div>
+        ) : null}
+        <DictionaryResults
+          entries={entries}
+          matchText={inputValue.trim()}
+          onHighlightChange={(item) => setHighlightedResult(item)}
         />
       </div>
-      {/* Floating draggable T9 keyboard */}
-      <T9Keyboard
-        onInput={(txt) => {
+
+      {/* Full-screen overlay recognizer (initially hidden) */}
+      <KanjiRecognizer
+        ref={recognizerRef as unknown as React.Ref<KanjiRecognizerHandle>}
+        overlayActive={overlayActive}
+        onCandidates={(list) => setRecogCandidates(list)}
+      />
+
+      {/* Kanji candidate UI is now integrated inside FloatingTools as a temporary tab */}
+
+      {/* Floating Tools with dimming */}
+      <FloatingTools
+        dimmed={toolsDimmed}
+        kanjiCandidates={!overlayActive ? recogCandidates : []}
+        onSelectKanji={(ch) => {
+          setInputValue((prev) => prev + ch);
+          setRecogCandidates([]);
+          recognizerRef.current?.clear();
+        }}
+        onClearKanji={() => {
+          setRecogCandidates([]);
+          recognizerRef.current?.clear();
+        }}
+        onKeyboardInput={(txt) => {
           setInputValue((prev) => {
+            if (txt === "{clear}") return "";
             if (txt === "\b") return prev.slice(0, -1);
             if (txt === "{dakuten}" || txt === "{handakuten}") {
               if (!prev) return prev;

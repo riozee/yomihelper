@@ -7,6 +7,8 @@ export interface T9KeyboardProps {
   onInput: (text: string) => void;
   // Optional: control visibility externally in the future
   initialPosition?: { x: number; y: number };
+  // If true, render without floating frame/drag; used when embedded in containers
+  embedded?: boolean;
 }
 
 // Mapping helper to create flick layout entries
@@ -81,6 +83,7 @@ const containerShadow =
 const T9Keyboard: React.FC<T9KeyboardProps> = ({
   onInput,
   initialPosition,
+  embedded = false,
 }) => {
   // Draggable position (fixed coordinates)
   const [pos, setPos] = useState<{ x: number; y: number }>(() => ({
@@ -95,6 +98,7 @@ const T9Keyboard: React.FC<T9KeyboardProps> = ({
 
   // Initialize default position near bottom-right and clamp on resize
   useEffect(() => {
+    if (embedded) return; // embedded mode doesn't manage its own position
     const width = 3 * KEY_SIZE + 2 * KEY_GAP + 24 /*padding*/ * 2;
     const height = 4 * KEY_SIZE + 3 * KEY_GAP + 40 /*header*/ + 24 * 2;
 
@@ -118,7 +122,7 @@ const T9Keyboard: React.FC<T9KeyboardProps> = ({
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [initialPosition]);
+  }, [initialPosition, embedded]);
 
   const clampToViewport = (nx: number, ny: number) => {
     const maxX = Math.max(0, window.innerWidth - containerSize.current.w);
@@ -179,6 +183,9 @@ const T9Keyboard: React.FC<T9KeyboardProps> = ({
   // Flick handling state for an individual key interaction
   const startPoint = useRef<{ x: number; y: number } | null>(null);
   const activeKey = useRef<FlickMap | null>(null);
+  // Long-press handling (for backspace clear-all)
+  const longPressTimer = useRef<number | null>(null);
+  const longPressFired = useRef(false);
 
   const decideDirection = (
     dx: number,
@@ -197,8 +204,32 @@ const T9Keyboard: React.FC<T9KeyboardProps> = ({
     startPoint.current = { x: e.clientX, y: e.clientY };
     activeKey.current = key;
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    // Setup long-press only for backspace key
+    longPressFired.current = false;
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    if (key.label === "⌫") {
+      longPressTimer.current = window.setTimeout(() => {
+        longPressFired.current = true;
+        onInput("{clear}");
+      }, 200);
+    }
   };
   const handleKeyPointerUp = (e: React.PointerEvent) => {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    if (longPressFired.current) {
+      // Long-press already handled a clear; swallow this pointer up
+      longPressFired.current = false;
+      startPoint.current = null;
+      activeKey.current = null;
+      (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
+      return;
+    }
     const sp = startPoint.current;
     const key = activeKey.current;
     startPoint.current = null;
@@ -235,42 +266,44 @@ const T9Keyboard: React.FC<T9KeyboardProps> = ({
     <div
       ref={containerRef}
       style={{
-        position: "fixed",
-        left: pos.x,
-        top: pos.y,
-        zIndex: 1000,
-        background: palette.bg,
-        border: `1px solid ${palette.border}`,
-        borderRadius: 12,
-        padding: 16,
-        boxShadow: containerShadow,
+        position: embedded ? "relative" : "fixed",
+        left: embedded ? undefined : pos.x,
+        top: embedded ? undefined : pos.y,
+        zIndex: embedded ? "auto" : 1000,
+        background: embedded ? "transparent" : palette.bg,
+        border: embedded ? "none" : `1px solid ${palette.border}`,
+        borderRadius: embedded ? 0 : 12,
+        padding: embedded ? 0 : 16,
+        boxShadow: embedded ? "none" : containerShadow,
         color: palette.text,
         userSelect: "none",
-        touchAction: "none",
-        width: 3 * KEY_SIZE + 2 * KEY_GAP + 16 * 2,
+        touchAction: embedded ? "auto" : "none",
+        width: embedded ? "auto" : 3 * KEY_SIZE + 2 * KEY_GAP + 16 * 2,
       }}
     >
-      {/* Drag handle */}
-      <div
-        onPointerDown={onDragPointerDown}
-        onPointerMove={onDragPointerMove}
-        onPointerUp={onDragPointerUp}
-        style={{
-          cursor: dragging.current ? "grabbing" : "grab",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "4px 4px 10px 4px",
-          color: palette.accent,
-          fontWeight: 600,
-          touchAction: "none",
-        }}
-      >
-        <span>T9</span>
-        <span style={{ fontSize: 12, color: palette.text, opacity: 0.7 }}>
-          drag
-        </span>
-      </div>
+      {/* Drag handle (hidden when embedded) */}
+      {!embedded && (
+        <div
+          onPointerDown={onDragPointerDown}
+          onPointerMove={onDragPointerMove}
+          onPointerUp={onDragPointerUp}
+          style={{
+            cursor: dragging.current ? "grabbing" : "grab",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "4px 4px 10px 4px",
+            color: palette.accent,
+            fontWeight: 600,
+            touchAction: "none",
+          }}
+        >
+          <span>T9</span>
+          <span style={{ fontSize: 12, color: palette.text, opacity: 0.7 }}>
+            drag
+          </span>
+        </div>
+      )}
 
       {/* Grid keys */}
       <div
@@ -304,7 +337,7 @@ const T9Keyboard: React.FC<T9KeyboardProps> = ({
                 }}
                 aria-label={`key ${key.label}`}
                 title={(() => {
-                  if (key.label === "⌫") return "Backspace";
+                  if (key.label === "⌫") return "Backspace (hold to clear)";
                   const pretty = (v?: string) =>
                     v === "{dakuten}"
                       ? "゛ (dakuten)"
@@ -315,6 +348,18 @@ const T9Keyboard: React.FC<T9KeyboardProps> = ({
                     .map(([d, ch]) => `${d}: ${pretty(ch)}`)
                     .join("  ");
                 })()}
+                onPointerCancel={(ev) => {
+                  if (longPressTimer.current) {
+                    window.clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
+                  longPressFired.current = false;
+                  startPoint.current = null;
+                  activeKey.current = null;
+                  (ev.currentTarget as Element).releasePointerCapture?.(
+                    ev.pointerId
+                  );
+                }}
               >
                 {key.label}
               </button>

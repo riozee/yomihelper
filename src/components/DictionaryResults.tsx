@@ -13,6 +13,7 @@ export type DictionaryResultsProps = {
   style?: React.CSSProperties;
   onSelect?: (entry: WordEntry, index: number) => void;
   matchText?: string; // raw input text to highlight within word/pronunciation
+  onHighlightChange?: (item: { word: string; meaning: string } | null) => void;
 };
 
 const DictionaryResults: React.FC<DictionaryResultsProps> = ({
@@ -23,9 +24,69 @@ const DictionaryResults: React.FC<DictionaryResultsProps> = ({
   style,
   onSelect,
   matchText,
+  onHighlightChange,
 }) => {
   const list = maxItems ? entries.slice(0, maxItems) : entries;
   const isEmpty = !list || list.length === 0;
+
+  const [activeIndex, setActiveIndex] = React.useState<number>(0);
+  const containerRef = React.useRef<HTMLUListElement>(null);
+  const itemRefs = React.useRef<(HTMLLIElement | null)[]>([]);
+
+  // Reset selection when list changes
+  React.useEffect(() => {
+    setActiveIndex(0);
+  }, [list.length]);
+
+  // Notify parent when highlight changes
+  React.useEffect(() => {
+    if (!list.length) return;
+    const e = list[Math.max(0, Math.min(activeIndex, list.length - 1))];
+    if (!e) return;
+    const meaning = e.definitions?.[0] ?? "";
+    onHighlightChange?.({ word: e.word, meaning });
+  }, [activeIndex, list, onHighlightChange]);
+
+  // Ensure active item is scrolled into view, placed near top
+  const scrollActiveIntoView = React.useCallback(() => {
+    const container = containerRef.current;
+    const el = itemRefs.current[activeIndex];
+    if (!container || !el) return;
+    const cRect = container.getBoundingClientRect();
+    const eRect = el.getBoundingClientRect();
+    const isBelow = eRect.bottom > cRect.bottom - 4;
+    const isAbove = eRect.top < cRect.top + 4;
+    if (isBelow || isAbove) {
+      const top = el.offsetTop; // position inside container
+      container.scrollTo({ top, behavior: "smooth" });
+    }
+  }, [activeIndex]);
+
+  React.useEffect(() => {
+    scrollActiveIntoView();
+  }, [activeIndex, scrollActiveIntoView]);
+
+  // Navigation via custom event dispatched by App and Nav tab
+  React.useEffect(() => {
+    const onCustom = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail as { direction?: number };
+      const dir = detail?.direction ?? 0;
+      if (!dir) return;
+      setActiveIndex((prev) => {
+        const next = prev + (dir < 0 ? -1 : 1);
+        if (next < 0) return 0;
+        if (next >= list.length) return list.length - 1;
+        return next;
+      });
+    };
+    window.addEventListener("yomi:navigateResults", onCustom as EventListener);
+    return () => {
+      window.removeEventListener(
+        "yomi:navigateResults",
+        onCustom as EventListener
+      );
+    };
+  }, [list.length]);
 
   if (isEmpty) return null;
 
@@ -144,14 +205,26 @@ const DictionaryResults: React.FC<DictionaryResultsProps> = ({
 
   return (
     <ul
+      ref={containerRef}
       className={["dictResults", className].filter(Boolean).join(" ")}
       style={style}
     >
       {list.map((e, i) => (
         <li
           key={`${e.word}-${e.pronunciation}-${i}`}
-          className={["dictResults__item"].join(" ")}
-          onClick={() => onSelect?.(e, i)}
+          ref={(el) => {
+            itemRefs.current[i] = el;
+          }}
+          className={[
+            "dictResults__item",
+            i === activeIndex ? "dictResults__item--active" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          onClick={() => {
+            setActiveIndex(i);
+            onSelect?.(e, i);
+          }}
         >
           <div className="dictResults__row">
             <span className="dictResults__word">{highlight(e.word)}</span>
